@@ -7,6 +7,10 @@
   <meta charset="utf-8">
   <title>Chris's Blog</title>
   <meta name="author" content="Chris Andrews">
+
+  
+  <meta name="description" content="MCollective is &#8220;a framework to build server orchestration or parallel
+job execution systems&#8221;. It&#8217;s very easy to create and deploy &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -15,59 +19,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-
-  <link rel="canonical" href="http://chrisa.github.com/index.html"/>
-  <link href="/favicon.png" rel="shortcut icon" />
+  <link rel="canonical" href="http://chrisa.github.com">
+  <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <script src="/javascripts/modernizr-2.0.js"></script>
-  <script src="http://s3.amazonaws.com/ender-js/jeesh.min.js"></script>
+  <script src="/javascripts/ender.js"></script>
   <script src="/javascripts/octopress.js" type="text/javascript"></script>
-  <link href="/atom.xml" rel="alternate" title="Chris's Blog" type="application/atom+xml"/>
-  
-
-  
-  <script type="text/javascript">
-    (function() {
-      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
-      script.src = 'https://apis.google.com/js/plusone.js';
-      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
-    })();
-  </script>
-
-
-  
-  <script type="text/javascript">
-    (function(){
-      var twitterWidgets = document.createElement('script');
-      twitterWidgets.type = 'text/javascript';
-      twitterWidgets.async = true;
-      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
-      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
-    })();
-  </script>
-
-
+  <link href="/atom.xml" rel="alternate" title="Chris's Blog" type="application/atom+xml">
   <!--Fonts from Google's Web font directory at http://google.com/webfonts -->
 <link href='http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
 <link href='http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
 
+  
+
 </head>
 
-<body  >
-  <header><hgroup>
+<body   >
+  <header role="banner"><hgroup>
   <h1><a href="/">Chris's Blog</a></h1>
-  
-    <h2>Tech.</h2>
   
 </hgroup>
 
 </header>
-  <nav role=navigation><ul role=subscription data-subscription="rss">
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
   <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
   
 </ul>
 <form action="http://google.com/search" method="get">
-  <fieldset role="site-search">
+  <fieldset role="search">
     <input type="hidden" name="q" value="site:chrisa.github.com" />
     <input class="search" type="text" name="q" results="0" placeholder="Search"/>
   </fieldset>
@@ -81,25 +60,305 @@
   <div id="main">
     <div id="content">
       <div class="blog-index">
+  
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2011/10/25/embedding-mcollective/">Embedding MCollective</a></h1>
+    
+    
+      <p class="meta">
+        
 
 
-<nav role="pagination">
-  <div>
+
+
+  
+
+<time datetime="2011-10-25T09:32:00+01:00" pubdate>Oct 25<span>th</span>, 2011</time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>MCollective is &#8220;a framework to build server orchestration or parallel
+job execution systems&#8221;. It&#8217;s very easy to create and deploy agents to
+your hosts, and then interrogate or instruct them with simple
+command-line tools. For ad hoc tasks, this is ideal.</p>
+
+<p>As part of our platform engineering work though, we&#8217;re integrating
+MCollective with existing tools, and with our new orchestration
+systems &#8211; using MCollective as the glue between a centralised
+controller and its agents on individual hosts.</p>
+
+<p>In this situation, our &#8220;client&#8221; isn&#8217;t a command-line tool but a larger
+Rails application with a number of other dependencies. Bringing the
+mcollective tools into this environment isn&#8217;t straightforward, since
+a number of the default options need to be changed.</p>
+
+<p>Here&#8217;s my first attempt to embed an MCollective client in my
+application:</p>
+
+<figure class='code'><figcaption><span>Embedding with default options (mco-embed.rb) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="nb">require</span> <span class="s1">&#39;mcollective&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">EmbeddedClient</span>
+</span><span class='line'>  <span class="kp">include</span> <span class="no">MCollective</span><span class="o">::</span><span class="no">RPC</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">client</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">client</span> <span class="o">=</span> <span class="n">rpcclient</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This has a number of problems.</p>
+
+<p>I need to make the &#8220;mcollective&#8221; library code available. There&#8217;s
+currently no gem available, so it&#8217;s not possible to just <tt>gem
+&#8220;mcollective&#8221;, &#8220;1.2.0&#8221;</tt> in the Gemfile. There&#8217;s also the
+MCollective plugins, which need to be in sync with the core library
+version.</p>
+
+<p>The configuration also needs to be available, and the default location
+is /etc/mcollective/client.cfg - which is naturally outside of any
+deployed application&#8217;s root, and so we&#8217;d need to deploy that
+separately.</p>
+
+<p>Having made the code available, the next problem to deal with is
+command-line option parsing. By default, MCollective will parse and
+validate the process&#8217;s ARGV, and raise an exception if it finds an
+option it doesn&#8217;t recognise. This isn&#8217;t appropriate in an embedded
+client, so we need to bypass option parsing.</p>
+
+<p>Here&#8217;s how to create an embedded MCollective client, taking these
+points into account:</p>
+
+<figure class='code'><figcaption><span>Embedding, take 2 (mco-embed2.rb) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="nb">require</span> <span class="s1">&#39;mcollective&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">EmbeddedClient</span>
+</span><span class='line'>  <span class="kp">include</span> <span class="no">MCollective</span><span class="o">::</span><span class="no">RPC</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">client</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">options</span> <span class="o">=</span>  <span class="no">MCollective</span><span class="o">::</span><span class="no">Util</span><span class="o">.</span><span class="n">default_options</span>
+</span><span class='line'>    <span class="n">options</span><span class="o">[</span><span class="ss">:config</span><span class="o">]</span> <span class="o">=</span> <span class="s1">&#39;config/mcollective.cfg&#39;</span>
+</span><span class='line'>    <span class="n">client</span> <span class="o">=</span> <span class="n">rpcclient</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="p">{</span><span class="ss">:options</span> <span class="o">=&gt;</span> <span class="n">options</span><span class="p">})</span>
+</span><span class='line'>    <span class="n">client</span><span class="o">.</span><span class="n">discovery_timeout</span> <span class="o">=</span> <span class="mi">10</span>
+</span><span class='line'>    <span class="n">client</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="mi">120</span>
+</span><span class='line'>    <span class="n">client</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>and here&#8217;s the configuration that points to:</p>
+
+<figure class='code'><figcaption><span>Configuration (mcollective.cfg) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='cfg'><span class='line'><span class="na">topicprefix</span> <span class="o">=</span> <span class="s">/topic/</span>
+</span><span class='line'><span class="na">main_collective</span> <span class="o">=</span> <span class="s">mcollective</span>
+</span><span class='line'><span class="na">collectives</span> <span class="o">=</span> <span class="s">mcollective</span>
+</span><span class='line'><span class="na">libdir</span> <span class="o">=</span> <span class="s">vendor/mcollective/plugins</span>
+</span><span class='line'><span class="na">logfile</span> <span class="o">=</span> <span class="s">stdout</span>
+</span><span class='line'><span class="na">loglevel</span> <span class="o">=</span> <span class="s">debug</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Plugins</span>
+</span><span class='line'><span class="na">securityprovider</span> <span class="o">=</span> <span class="s">psk</span>
+</span><span class='line'><span class="na">plugin.psk</span> <span class="o">=</span> <span class="s">yeah</span>
+</span><span class='line'>
+</span><span class='line'><span class="na">connector</span> <span class="o">=</span> <span class="s">stomp</span>
+</span><span class='line'><span class="na">plugin.stomp.host</span> <span class="o">=</span> <span class="s">10.101.1.16</span>
+</span><span class='line'><span class="na">plugin.stomp.port</span> <span class="o">=</span> <span class="s">61613</span>
+</span><span class='line'><span class="na">plugin.stomp.user</span> <span class="o">=</span> <span class="s">guest</span>
+</span><span class='line'><span class="na">plugin.stomp.password</span> <span class="o">=</span> <span class="s">guest</span>
+</span><span class='line'>
+</span><span class='line'><span class="c"># Facts</span>
+</span><span class='line'><span class="na">factsource</span> <span class="o">=</span> <span class="s">yaml</span>
+</span><span class='line'><span class="na">plugin.yaml</span> <span class="o">=</span> <span class="s">config/mcollective_facts.yaml</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This works, but there&#8217;s a problem - in rpcclient(), there&#8217;s a call to
+<tt>exit!</tt> on any exception during the client setup process,
+including exceptions thrown by the stomp library. We need to avoid
+that and handle exceptions ourselves, so:</p>
+
+<figure class='code'><figcaption><span>Embedding, take 3 (mco-embed3.rb) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="nb">require</span> <span class="s1">&#39;mcollective&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">EmbeddedClient</span>
+</span><span class='line'>  <span class="kp">include</span> <span class="no">MCollective</span><span class="o">::</span><span class="no">RPC</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">client</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">options</span> <span class="o">=</span>  <span class="no">MCollective</span><span class="o">::</span><span class="no">Util</span><span class="o">.</span><span class="n">default_options</span>
+</span><span class='line'>    <span class="n">options</span><span class="o">[</span><span class="ss">:config</span><span class="o">]</span> <span class="o">=</span> <span class="s1">&#39;config/mcollective.cfg&#39;</span>
+</span><span class='line'>    <span class="n">client</span> <span class="o">=</span> <span class="no">MCollective</span><span class="o">::</span><span class="no">RPC</span><span class="o">::</span><span class="no">Client</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="ss">:options</span> <span class="o">=&gt;</span> <span class="n">options</span><span class="p">)</span>
+</span><span class='line'>    <span class="n">client</span><span class="o">.</span><span class="n">discovery_timeout</span> <span class="o">=</span> <span class="mi">10</span>
+</span><span class='line'>    <span class="n">client</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="mi">120</span>
+</span><span class='line'>    <span class="n">client</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now we can handle exceptions ourselves, but there&#8217;s still an issue -
+the stomp library writes directly to $stderr and we should be
+collecting that output and logging it in whatever way is appropriate
+for the application:</p>
+
+<figure class='code'><figcaption><span>Logging $stderr (mco-embed4.rb) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="k">def</span> <span class="nf">log_stderr</span> <span class="o">&amp;</span><span class="n">block</span>
+</span><span class='line'>  <span class="k">begin</span>
+</span><span class='line'>    <span class="n">real_stderr</span><span class="p">,</span> <span class="vg">$stderr</span> <span class="o">=</span> <span class="vg">$stderr</span><span class="p">,</span> <span class="no">StringIO</span><span class="o">.</span><span class="n">new</span>
+</span><span class='line'>    <span class="k">yield</span>
+</span><span class='line'>  <span class="k">ensure</span>
+</span><span class='line'>    <span class="vg">$stderr</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">real_stderr</span><span class="p">,</span> <span class="vg">$stderr</span>
+</span><span class='line'>    <span class="n">stderr</span><span class="o">.</span><span class="n">string</span><span class="o">.</span><span class="n">each_line</span> <span class="k">do</span> <span class="o">|</span><span class="n">line</span><span class="o">|</span>
+</span><span class='line'>      <span class="n">log</span><span class="p">(</span><span class="ss">:error</span><span class="p">,</span> <span class="s2">&quot;stderr: </span><span class="si">#{</span><span class="n">line</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1"># and then:</span>
+</span><span class='line'><span class="n">log_stderr</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">run_mcollective_processes</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>At this point, we&#8217;ve got the following problems solved:</p>
+
+<ul>
+<li>MCollective&#8217;s library code and plugins are within our application tree</li>
+<li>The configuration file is also within the application</li>
+<li>MCollective won&#8217;t try to reinterpret our application&#8217;s ARGV</li>
+<li>We can handle client-setup exceptions ourselves</li>
+<li>Stomp errors are logged, rather than being output to stderr.</li>
+</ul>
+
+
+<p>which should let the application interact with MCollective in a
+reliable and maintainable way.</p>
+</div>
+  
+  
+
+
+    </article>
+  
+  <div class="pagination">
     
     <a href="/blog/archives">Blog Archives</a>
     
   </div>
-</nav>
-
 </div>
-<aside role=sidebar>
+<aside class="sidebar">
   
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
     
+      <li class="post">
+        <a href="/blog/2011/10/25/embedding-mcollective/">Embedding MCollective</a>
+      </li>
+    
   </ul>
 </section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating&#8230;</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("chrisandrews", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/chrisandrews" class="twitter-follow-button" data-width="208px" data-show-count="false">Follow @chrisandrews</a>
+  
+</section>
+
 
 
 
@@ -109,11 +368,50 @@
 
     </div>
   </div>
-  <footer><p>
+  <footer role="contentinfo"><p>
   Copyright &copy; 2011 - Chris Andrews -
   <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
 </p>
 
 </footer>
+  
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
 </body>
 </html>
