@@ -4,7 +4,7 @@
 
 url: http://chrisa.github.com
 title: Chris's Blog
-subtitle: Tech.
+subtitle: 
 author: Chris Andrews
 simple_search: http://google.com/search
 
@@ -12,7 +12,7 @@ simple_search: http://google.com/search
 subscribe_rss: /atom.xml
 subscribe_email:
 # RSS feeds can list your email address if you like
-email:
+email: chris@nodnol.org
 
 # ----------------------- #
 #    Jekyll & Plugins     #
@@ -49,7 +49,7 @@ default_asides: [asides/recent_posts.html, asides/twitter.html, asides/delicious
 # ----------------------- #
 
 # Twitter
-twitter_user:
+twitter_user: chrisandrews
 twitter_tweet_count: 4
 twitter_show_replies: false
 twitter_follow_button: true
@@ -61,15 +61,15 @@ google_plus_one: true
 google_plus_one_size: medium
 
 # Pinboard
-pinboard_user:
-pinboard_count: 3
+#pinboard_user:
+#pinboard_count: 3
 
 # Delicious
-delicious_user:
-delicious_count: 3
+#delicious_user:
+#delicious_count: 3
 
 # Disqus Comments
-disqus_short_name:
+#disqus_short_name:
 
 # Google Analytics
 google_analytics_tracking_id:
