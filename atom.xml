@@ -4,7 +4,7 @@
   <title><![CDATA[Chris's Blog]]></title>
   <link href="http://chrisa.github.com/atom.xml" rel="self"/>
   <link href="http://chrisa.github.com/"/>
-  <updated>2011-10-25T10:32:43+01:00</updated>
+  <updated>2011-12-03T14:29:31+00:00</updated>
   <id>http://chrisa.github.com/</id>
   <author>
     <name><![CDATA[Chris Andrews]]></name>
@@ -12,6 +12,47 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Ruby 1.9.2 and YAML]]></title>
+    <link href="http://chrisa.github.com/blog/2011/12/03/ruby-1.9.2-and-yaml/"/>
+    <updated>2011-12-03T00:00:00+00:00</updated>
+    <id>http://chrisa.github.com/blog/2011/12/03/ruby-1.9.2-and-yaml</id>
+    <content type="html"><![CDATA[<p>I found another gotcha when embedding MCollective in a larger
+application: Ruby&#8217;s YAML library situation. Historically Ruby has used
+the Syck library, but since 1.9.2 libyaml is used if available,
+through a set of bindings called Psych.</p>
+
+<p>While Syck is still available and may be selected at runtime, the
+default is chosen at compile time, based on the presence or not of
+libyaml - if it&#8217;s there when you build Ruby, you&#8217;ll get Psych by
+default.</p>
+
+<p>To find out which binding your Ruby uses, inspect <tt>YAML::ENGINE.yamler</tt>:</p>
+
+<figure class='code'><figcaption><span>Finding the current YAML library </span></figcaption>
+<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>ruby-1.9.2-p290 :004 > YAML::ENGINE.yamler
+</span><span class='line'> => "syck"</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This wouldn&#8217;t be a problem unless there were differences, and although
+it&#8217;s fair to say that Psych is more compliant with the YAML spec, it&#8217;s
+less tolerant of slight deviations - some of which Syck is guilty of.</p>
+
+<p>Coming back to MCollective, this means that an MCollective running on
+Ruby 1.9.2 with Psych won&#8217;t necessarily be able to communicate with
+other MCollective installations running on Ruby 1.8 with Syck. Mostly
+this seems to be down to handling of whitespace in multiline YAML
+values, which MCollective makes heavy use of since it nests one YAML
+document in another.</p>
+
+<p>The initial fix in my environment was to rebuild Ruby 1.9.2 without
+libyaml, so Syck is used everywhere. Beyond that, upgrading everything
+to the same Ruby 1.9.2 build appears to be the best long term answer.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Embedding MCollective]]></title>
