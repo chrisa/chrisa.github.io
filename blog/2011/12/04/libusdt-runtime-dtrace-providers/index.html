@@ -1,0 +1,338 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>libusdt - creating DTrace providers at runtime - Chris's Blog</title>
+  <meta name="author" content="Chris Andrews">
+
+  
+  <meta name="description" content="With this post I&#8217;d like to introduce libusdt, a library for
+creating DTrace USDT providers at runtime, intended as the basis for
+implementing &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://chrisa.github.com/blog/2011/12/04/libusdt-runtime-dtrace-providers">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Chris's Blog" type="application/atom+xml">
+  <!--Fonts from Google's Web font directory at http://google.com/webfonts -->
+<link href='http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-26543505-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Chris's Blog</a></h1>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:chrisa.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+<ul role=main-navigation>
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Libusdt - Creating DTrace Providers at Runtime</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2011-12-04T00:00:00+00:00" pubdate data-updated="true">Dec 4<span>th</span>, 2011</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>With this post I&#8217;d like to introduce <tt>libusdt</tt>, a library for
+creating DTrace USDT providers at runtime, intended as the basis for
+implementing custom DTrace providers in dynamic languages, but
+applicable wherever the provider definition isn&#8217;t known at compile
+time.</p>
+
+<p>A bit of the history of this library: in 2007 I&#8217;d been tinkering with
+a Ruby extension to allow access to libdtrace as a consumer of DTrace
+data, with the hope that this might make it easier to write complex
+analysis scripts - like <a href="https://github.com/chrisa/ruby-dtrace/blob/master/examples/scsi.rb">this port to ruby</a> of Chris Gerhard&#8217;s
+<tt><a href="http://blogs.oracle.com/chrisg/entry/scsi_d_script">scsi.d</a></tt>
+script.</p>
+
+<p>At this point, the Ruby interpreter had been <a href="http://joyeur.com/2007/05/07/dtrace-for-ruby-is-available/">patched by Joyent</a>
+to include its
+own USDT provider, which was accessible using the consumer
+library. What wasn&#8217;t possible though was to define providers in Ruby, to
+create probes meaningful to the application rather than just to the
+interpreter. My first attempt at this, autogenerating and building the
+C source and D script required to specify a provider, was never going
+to be anything other than an experiment.</p>
+
+<p><a href="http://blogs.oracle.com/kamg/entry/adding_user_defined_dtrace_probes">This post</a>
+by Keith McGuigan, though, showed that the JVM was capable of creating
+providers at runtime without invoking the usual compile-time
+machinery. It seemed that to do this using the existing USDT provider
+in Solaris, it&#8217;d have to be doing a number of things:</p>
+
+<ul>
+<li>Dynamically creating tracepoints in the running process</li>
+<li>Dynamically creating DOF to describe the provider to the kernel</li>
+<li>Loading the DOF to enable the provider.</li>
+</ul>
+
+
+<p>Was the JVM doing all this? Keith&#8217;s blog post didn&#8217;t discuss the
+low-level implementation, and there didn&#8217;t seem to be a way to do it
+with libdtrace&#8230;</p>
+
+<p>This was just before dtrace.conf(08). I was fortunate enough to attend
+and was able to speak to Keith about the JVM implementation. It turns
+out that this is pretty much how it works - the JVM with its
+JIT-compiler already has the capability of creating new native code at
+runtime, and creating the appropriate DOF document is simply a matter
+of following the extensive documentation in <tt>&lt;sys/dtrace.h></tt>.</p>
+
+<p>I got this working in Ruby, and so now
+<a href="https://github.com/chrisa/ruby-dtrace/">ruby-dtrace</a> could both
+produce and consume DTrace data, and eventually do it on all the
+platforms supporting USDT providers - Solaris and Mac OS X, SPARC,
+Intel and PowerPC, 32 and 64 bit (it&#8217;s entirely responsible for the
+obsolete computers I still keep around&#8230;). This supported providers
+like <a href="https://github.com/ecin/rack-probe">Rack::Probe</a>.</p>
+
+<p><a href="https://github.com/chrisa/perl-dtrace/tree/master/Devel-DTrace-Provider">Devel::DTrace::Provider</a>
+followed for Perl, like ruby-dtrace mostly in Perl - it was clear that
+the core of these extensions needed to be a standalone library. One
+more similar port,
+<a href="https://github.com/chrisa/node-dtrace-provider">node-dtrace-provider</a>,
+provoked a start on <tt>libusdt</tt>.</p>
+
+<p>Incidentally the Perl port was written to add probes to my employer&#8217;s
+large Perl web-app, for an evaluation on Solaris - we immediately
+discovered unexpected behaviours, with the additional context provided
+by the application&#8217;s probes going some way to making up for the lack
+of a Perl stack helper.</p>
+
+<p><tt><a href="https://github.com/chrisa/libusdt/">libusdt</a></tt> is currently
+very limited - right now it only supports the Mac, and then only for
+64 bit processes - but my plan is to bring over all the platform
+support from ruby-dtrace and then to port all the language bindings
+to use it as the core of their implementation.</p>
+
+<p>Once that&#8217;s done, I&#8217;d like to find ways to reduce the disabled-probe
+overhead - while is-enabled probes are supported and used to allow
+costly argument-gathering work to be avoided where possible, the use
+of generated stub functions means there&#8217;s still some overhead.</p>
+
+<p>Some of this work will undoubtedly be language-specific, tying the
+generated probes in more closely with the runtimes, but some may also
+come from improvements in the library itself.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Chris Andrews</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2011-12-04T00:00:00+00:00" pubdate data-updated="true">Dec 4<span>th</span>, 2011</time>
+      
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://chrisa.github.com/blog/2011/12/04/libusdt-runtime-dtrace-providers/" data-via="chrisandrews" data-counturl="http://chrisa.github.com/blog/2011/12/04/libusdt-runtime-dtrace-providers/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2011/12/03/ruby-1.9.2-and-yaml/" title="Previous Post: Ruby 1.9.2 and YAML">&laquo; Ruby 1.9.2 and YAML</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2011/12/04/libusdt-runtime-dtrace-providers/">libusdt - creating DTrace providers at runtime</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2011/12/03/ruby-1.9.2-and-yaml/">Ruby 1.9.2 and YAML</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2011/10/25/embedding-mcollective/">Embedding MCollective</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>Github Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/chrisa">@chrisa</a> on Github
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'chrisa',
+            count: 8,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("chrisandrews", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/chrisandrews" class="twitter-follow-button" data-width="208px" data-show-count="false">Follow @chrisandrews</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2011 - <a href="mailto:chris@nodnol.org">Chris Andrews</a> -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

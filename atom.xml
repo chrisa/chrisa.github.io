@@ -4,7 +4,7 @@
   <title><![CDATA[Chris's Blog]]></title>
   <link href="http://chrisa.github.com/atom.xml" rel="self"/>
   <link href="http://chrisa.github.com/"/>
-  <updated>2011-12-03T14:29:31+00:00</updated>
+  <updated>2011-12-04T22:32:05+00:00</updated>
   <id>http://chrisa.github.com/</id>
   <author>
     <name><![CDATA[Chris Andrews]]></name>
@@ -12,6 +12,95 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[libusdt - creating DTrace providers at runtime]]></title>
+    <link href="http://chrisa.github.com/blog/2011/12/04/libusdt-runtime-dtrace-providers/"/>
+    <updated>2011-12-04T00:00:00+00:00</updated>
+    <id>http://chrisa.github.com/blog/2011/12/04/libusdt-runtime-dtrace-providers</id>
+    <content type="html"><![CDATA[<p>With this post I&#8217;d like to introduce <tt>libusdt</tt>, a library for
+creating DTrace USDT providers at runtime, intended as the basis for
+implementing custom DTrace providers in dynamic languages, but
+applicable wherever the provider definition isn&#8217;t known at compile
+time.</p>
+
+<p>A bit of the history of this library: in 2007 I&#8217;d been tinkering with
+a Ruby extension to allow access to libdtrace as a consumer of DTrace
+data, with the hope that this might make it easier to write complex
+analysis scripts - like <a href="https://github.com/chrisa/ruby-dtrace/blob/master/examples/scsi.rb">this port to ruby</a> of Chris Gerhard&#8217;s
+<tt><a href="http://blogs.oracle.com/chrisg/entry/scsi_d_script">scsi.d</a></tt>
+script.</p>
+
+<p>At this point, the Ruby interpreter had been <a href="http://joyeur.com/2007/05/07/dtrace-for-ruby-is-available/">patched by Joyent</a>
+to include its
+own USDT provider, which was accessible using the consumer
+library. What wasn&#8217;t possible though was to define providers in Ruby, to
+create probes meaningful to the application rather than just to the
+interpreter. My first attempt at this, autogenerating and building the
+C source and D script required to specify a provider, was never going
+to be anything other than an experiment.</p>
+
+<p><a href="http://blogs.oracle.com/kamg/entry/adding_user_defined_dtrace_probes">This post</a>
+by Keith McGuigan, though, showed that the JVM was capable of creating
+providers at runtime without invoking the usual compile-time
+machinery. It seemed that to do this using the existing USDT provider
+in Solaris, it&#8217;d have to be doing a number of things:</p>
+
+<ul>
+<li>Dynamically creating tracepoints in the running process</li>
+<li>Dynamically creating DOF to describe the provider to the kernel</li>
+<li>Loading the DOF to enable the provider.</li>
+</ul>
+
+
+<p>Was the JVM doing all this? Keith&#8217;s blog post didn&#8217;t discuss the
+low-level implementation, and there didn&#8217;t seem to be a way to do it
+with libdtrace&#8230;</p>
+
+<p>This was just before dtrace.conf(08). I was fortunate enough to attend
+and was able to speak to Keith about the JVM implementation. It turns
+out that this is pretty much how it works - the JVM with its
+JIT-compiler already has the capability of creating new native code at
+runtime, and creating the appropriate DOF document is simply a matter
+of following the extensive documentation in <tt>&lt;sys/dtrace.h></tt>.</p>
+
+<p>I got this working in Ruby, and so now
+<a href="https://github.com/chrisa/ruby-dtrace/">ruby-dtrace</a> could both
+produce and consume DTrace data, and eventually do it on all the
+platforms supporting USDT providers - Solaris and Mac OS X, SPARC,
+Intel and PowerPC, 32 and 64 bit (it&#8217;s entirely responsible for the
+obsolete computers I still keep around&#8230;). This supported providers
+like <a href="https://github.com/ecin/rack-probe">Rack::Probe</a>.</p>
+
+<p><a href="https://github.com/chrisa/perl-dtrace/tree/master/Devel-DTrace-Provider">Devel::DTrace::Provider</a>
+followed for Perl, like ruby-dtrace mostly in Perl - it was clear that
+the core of these extensions needed to be a standalone library. One
+more similar port,
+<a href="https://github.com/chrisa/node-dtrace-provider">node-dtrace-provider</a>,
+provoked a start on <tt>libusdt</tt>.</p>
+
+<p>Incidentally the Perl port was written to add probes to my employer&#8217;s
+large Perl web-app, for an evaluation on Solaris - we immediately
+discovered unexpected behaviours, with the additional context provided
+by the application&#8217;s probes going some way to making up for the lack
+of a Perl stack helper.</p>
+
+<p><tt><a href="https://github.com/chrisa/libusdt/">libusdt</a></tt> is currently
+very limited - right now it only supports the Mac, and then only for
+64 bit processes - but my plan is to bring over all the platform
+support from ruby-dtrace and then to port all the language bindings
+to use it as the core of their implementation.</p>
+
+<p>Once that&#8217;s done, I&#8217;d like to find ways to reduce the disabled-probe
+overhead - while is-enabled probes are supported and used to allow
+costly argument-gathering work to be avoided where possible, the use
+of generated stub functions means there&#8217;s still some overhead.</p>
+
+<p>Some of this work will undoubtedly be language-specific, tying the
+generated probes in more closely with the runtimes, but some may also
+come from improvements in the library itself.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Ruby 1.9.2 and YAML]]></title>
