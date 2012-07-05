@@ -4,7 +4,7 @@
   <title><![CDATA[Chris's Blog]]></title>
   <link href="http://chrisa.github.com/atom.xml" rel="self"/>
   <link href="http://chrisa.github.com/"/>
-  <updated>2011-12-04T22:32:05+00:00</updated>
+  <updated>2012-07-05T08:36:55+01:00</updated>
   <id>http://chrisa.github.com/</id>
   <author>
     <name><![CDATA[Chris Andrews]]></name>
@@ -12,6 +12,115 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Custom <tt>chef_gem</tt> resources]]></title>
+    <link href="http://chrisa.github.com/blog/2012/07/05/custom-chef-gem-resources/"/>
+    <updated>2012-07-05T00:00:00+01:00</updated>
+    <id>http://chrisa.github.com/blog/2012/07/05/custom-chef-gem-resources</id>
+    <content type="html"><![CDATA[<p>Since Chef 0.10.10, there&#8217;s been a new core resource for installing
+Ruby gems to support Chef cookbooks: <tt>chef_gem</tt>. This installs
+gems into the current Ruby at compile time, and handles making the
+newly-installed gems available to the running Chef client &#8211; wrapping
+up an ugly piece of code found in many cookbooks:</p>
+
+<figure class='code'><figcaption><span>Before chef_gem (before.rb) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="n">gem_package</span> <span class="s2">&quot;ruby-shadow&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">action</span> <span class="ss">:nothing</span>
+</span><span class='line'><span class="k">end</span><span class="o">.</span><span class="n">run_action</span> <span class="ss">:install</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Gem</span><span class="o">.</span><span class="n">clear_paths</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>into a single resource declaration:</p>
+
+<figure class='code'><figcaption><span>With chef_gem (after.rb) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="n">chef_gem</span> <span class="s2">&quot;ruby-shadow&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We hadn&#8217;t considered switching to this resource though, despite a
+compatibility cookbook being <a
+href="http://community.opscode.com/cookbooks/chef_gem">available</a>
+for older Chef versions, because our local Ruby environment is based
+on RPMs. We build a single Ruby RPM for all our management tools, with
+individual gems also built into RPMs, so our gem dependency resources
+specify <tt>yum_package</tt> rather than <tt>gem_package</tt>.</p>
+
+<p>This hasn&#8217;t given us any problems beyond a need to patch cookbooks to
+install our RPMs, but now we&#8217;re open sourcing some of our cookbooks,
+it means that our dependencies are specific to our local environment.</p>
+
+<p>Using <tt>chef_gem</tt> as an abstraction though, we can specify
+dependencies in a way that&#8217;s appropriate for an open source cookbook
+but have a local override which actually installs our RPMs. We also
+avoid having to patch cookbooks just to make sure our RPMs are
+installed for dependencies.</p>
+
+<p>This is the resource definition, which is a shim between the
+<tt>chef_gem</tt> resource and the <tt>yum_package</tt> provider,
+adjusting the requested package name as we need for our RPMs.</p>
+
+<figure class='code'><figcaption><span>Local chef_gem (libraries/chefgem.rb) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="k">class</span> <span class="nc">Chef</span><span class="o">::</span><span class="no">Resource</span><span class="o">::</span><span class="no">ChefGem</span> <span class="o">&lt;</span> <span class="no">Chef</span><span class="o">::</span><span class="no">Resource</span><span class="o">::</span><span class="no">YumPackage</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="nb">name</span><span class="p">,</span> <span class="n">run_context</span><span class="o">=</span><span class="kp">nil</span><span class="p">)</span>
+</span><span class='line'>    <span class="c1"># adjust the desired package name to match our RPM system</span>
+</span><span class='line'>    <span class="nb">name</span> <span class="o">=</span> <span class="s2">&quot;rubygem19-</span><span class="si">#{</span><span class="nb">name</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">super</span>
+</span><span class='line'>    <span class="vi">@resource_name</span> <span class="o">=</span> <span class="ss">:chef_gem</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1"># adjust the provider to install RPMs with yum</span>
+</span><span class='line'>    <span class="vi">@provider</span> <span class="o">=</span> <span class="no">Chef</span><span class="o">::</span><span class="no">Provider</span><span class="o">::</span><span class="no">Package</span><span class="o">::</span><span class="no">Yum</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">after_created</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">def</span> <span class="nf">after_created</span>
+</span><span class='line'>    <span class="nb">Array</span><span class="p">(</span><span class="vi">@action</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="o">.</span><span class="n">compact</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">action</span><span class="o">|</span>
+</span><span class='line'>      <span class="nb">self</span><span class="o">.</span><span class="n">run_action</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>    <span class="no">Gem</span><span class="o">.</span><span class="n">clear_paths</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This code goes in a local-enviroment cookbook as a library. Once we
+upgrade to Chef 0.10.10 or later, it will override the core
+<tt>chef_gem</tt> resource, and continue to install our RPMs.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[libusdt - creating DTrace providers at runtime]]></title>
