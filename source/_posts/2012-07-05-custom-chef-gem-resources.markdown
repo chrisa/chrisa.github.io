@@ -3,7 +3,7 @@ layout: post
 title: "Custom <tt>chef_gem</tt> resources"
 date: 2012-07-05
 comments: false
-categories:
+categories: chef
 ---
 
 Since Chef 0.10.10, there's been a new core resource for installing
@@ -49,26 +49,32 @@ This is the resource definition, which is a shim between the
 adjusting the requested package name as we need for our RPMs.
 
 {% codeblock Local chef_gem (libraries/chefgem.rb) %}
-class Chef::Resource::ChefGem < Chef::Resource::YumPackage
-
-  def initialize(name, run_context=nil)
-    # adjust the desired package name to match our RPM system
-    name = "rubygem19-#{name}"
-
-    super
-    @resource_name = :chef_gem
-
-    # adjust the provider to install RPMs with yum
-    @provider = Chef::Provider::Package::Yum
-
-    after_created
-  end
-
-  def after_created
-    Array(@action).flatten.compact.each do |action|
-      self.run_action(action)
+class Chef
+  class Resource
+    begin
+      send(:remove_const, 'ChefGem')
+    rescue
+      nil
     end
-    Gem.clear_paths
+
+    class ChefGem < Chef::Resource::YumPackage
+
+      def initialize(name, run_context=nil)
+        # our gem name -> rpm name mapping
+        name = "rubygem19-#{name}"
+        super
+        @resource_name = :chef_gem
+        @provider = Chef::Provider::Package::Yum
+        after_created
+      end
+
+      def after_created
+        Array(@action).flatten.compact.each do |action|
+          self.run_action(action)
+        end
+        Gem.clear_paths
+      end
+    end
   end
 end
 {% endcodeblock %}
