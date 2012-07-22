@@ -14,14 +14,18 @@
     </url>
     <url>
         <loc>http://chrisa.github.com/blog/2012/07/05/custom-chef-gem-resources/</loc>
-        <lastmod>2012-07-05T10:13:52+01:00</lastmod>
+        <lastmod>2012-07-22T14:23:29+01:00</lastmod>
+    </url>
+    <url>
+        <loc>http://chrisa.github.com/blog/2012/07/21/deploying-a-pki-with-chef/</loc>
+        <lastmod>2012-07-22T14:18:50+01:00</lastmod>
     </url>
     <url>
         <loc>http://chrisa.github.com/blog/archives/</loc>
-        <lastmod>2012-07-05T10:13:52+01:00</lastmod>
+        <lastmod>2012-07-22T14:23:29+01:00</lastmod>
     </url>
     <url>
         <loc>http://chrisa.github.com/</loc>
-        <lastmod>2012-07-05T10:13:52+01:00</lastmod>
+        <lastmod>2012-07-22T14:23:29+01:00</lastmod>
     </url>
 </urlset>

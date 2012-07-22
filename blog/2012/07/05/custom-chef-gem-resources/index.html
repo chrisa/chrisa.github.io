@@ -175,26 +175,38 @@ adjusting the requested package name as we need for our RPMs.</p>
 <span class='line-number'>20</span>
 <span class='line-number'>21</span>
 <span class='line-number'>22</span>
-</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="k">class</span> <span class="nc">Chef</span><span class="o">::</span><span class="no">Resource</span><span class="o">::</span><span class="no">ChefGem</span> <span class="o">&lt;</span> <span class="no">Chef</span><span class="o">::</span><span class="no">Resource</span><span class="o">::</span><span class="no">YumPackage</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="nb">name</span><span class="p">,</span> <span class="n">run_context</span><span class="o">=</span><span class="kp">nil</span><span class="p">)</span>
-</span><span class='line'>    <span class="c1"># adjust the desired package name to match our RPM system</span>
-</span><span class='line'>    <span class="nb">name</span> <span class="o">=</span> <span class="s2">&quot;rubygem19-</span><span class="si">#{</span><span class="nb">name</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="k">super</span>
-</span><span class='line'>    <span class="vi">@resource_name</span> <span class="o">=</span> <span class="ss">:chef_gem</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c1"># adjust the provider to install RPMs with yum</span>
-</span><span class='line'>    <span class="vi">@provider</span> <span class="o">=</span> <span class="no">Chef</span><span class="o">::</span><span class="no">Provider</span><span class="o">::</span><span class="no">Package</span><span class="o">::</span><span class="no">Yum</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">after_created</span>
-</span><span class='line'>  <span class="k">end</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="k">def</span> <span class="nf">after_created</span>
-</span><span class='line'>    <span class="nb">Array</span><span class="p">(</span><span class="vi">@action</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="o">.</span><span class="n">compact</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">action</span><span class="o">|</span>
-</span><span class='line'>      <span class="nb">self</span><span class="o">.</span><span class="n">run_action</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="k">class</span> <span class="nc">Chef</span>
+</span><span class='line'>  <span class="k">class</span> <span class="nc">Resource</span>
+</span><span class='line'>    <span class="k">begin</span>
+</span><span class='line'>      <span class="nb">send</span><span class="p">(</span><span class="ss">:remove_const</span><span class="p">,</span> <span class="s1">&#39;ChefGem&#39;</span><span class="p">)</span>
+</span><span class='line'>    <span class="k">rescue</span>
+</span><span class='line'>      <span class="kp">nil</span>
 </span><span class='line'>    <span class="k">end</span>
-</span><span class='line'>    <span class="no">Gem</span><span class="o">.</span><span class="n">clear_paths</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">class</span> <span class="nc">ChefGem</span> <span class="o">&lt;</span> <span class="no">Chef</span><span class="o">::</span><span class="no">Resource</span><span class="o">::</span><span class="no">YumPackage</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="nb">name</span><span class="p">,</span> <span class="n">run_context</span><span class="o">=</span><span class="kp">nil</span><span class="p">)</span>
+</span><span class='line'>        <span class="c1"># our gem name -&gt; rpm name mapping</span>
+</span><span class='line'>        <span class="nb">name</span> <span class="o">=</span> <span class="s2">&quot;rubygem19-</span><span class="si">#{</span><span class="nb">name</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span class='line'>        <span class="k">super</span>
+</span><span class='line'>        <span class="vi">@resource_name</span> <span class="o">=</span> <span class="ss">:chef_gem</span>
+</span><span class='line'>        <span class="vi">@provider</span> <span class="o">=</span> <span class="no">Chef</span><span class="o">::</span><span class="no">Provider</span><span class="o">::</span><span class="no">Package</span><span class="o">::</span><span class="no">Yum</span>
+</span><span class='line'>        <span class="n">after_created</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">def</span> <span class="nf">after_created</span>
+</span><span class='line'>        <span class="nb">Array</span><span class="p">(</span><span class="vi">@action</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="o">.</span><span class="n">compact</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">action</span><span class="o">|</span>
+</span><span class='line'>          <span class="nb">self</span><span class="o">.</span><span class="n">run_action</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+</span><span class='line'>        <span class="k">end</span>
+</span><span class='line'>        <span class="no">Gem</span><span class="o">.</span><span class="n">clear_paths</span>
+</span><span class='line'>      <span class="k">end</span>
+</span><span class='line'>    <span class="k">end</span>
 </span><span class='line'>  <span class="k">end</span>
 </span><span class='line'><span class="k">end</span>
 </span></code></pre></td></tr></table></div></figure>
@@ -228,6 +240,12 @@ upgrade to Chef 0.10.10 or later, it will override the core
 <time datetime="2012-07-05T00:00:00+01:00" pubdate data-updated="true">Jul 5<span>th</span>, 2012</time>
       
 
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/chef/'>chef</a>
+  
+</span>
+
 
     </p>
     
@@ -245,6 +263,8 @@ upgrade to Chef 0.10.10 or later, it will override the core
         <a class="basic-alignment left" href="/blog/2011/12/04/libusdt-runtime-dtrace-providers/" title="Previous Post: libusdt - creating DTrace providers at runtime">&laquo; libusdt - creating DTrace providers at runtime</a>
       
       
+        <a class="basic-alignment right" href="/blog/2012/07/21/deploying-a-pki-with-chef/" title="Next Post: Deploying a PKI with Chef">Deploying a PKI with Chef &raquo;</a>
+      
     </p>
   </footer>
 </article>
@@ -256,6 +276,10 @@ upgrade to Chef 0.10.10 or later, it will override the core
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2012/07/21/deploying-a-pki-with-chef/">Deploying a PKI with Chef</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2012/07/05/custom-chef-gem-resources/">Custom <tt>chef_gem</tt> resources</a>
