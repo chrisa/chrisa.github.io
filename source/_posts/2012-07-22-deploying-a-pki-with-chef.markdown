@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Deploying a PKI with Chef"
-date: 2012-07-21
+date: 2012-07-22
 comments: false
 categories: chef
 ---
