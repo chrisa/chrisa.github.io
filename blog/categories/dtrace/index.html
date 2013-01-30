@@ -5,13 +5,11 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Ruby 1.9.2 and YAML - Chris's Blog</title>
+  <title>Category: dtrace - Chris's Blog</title>
   <meta name="author" content="Chris Andrews">
 
   
-  <meta name="description" content="I found another gotcha when embedding MCollective in a larger
-application: Ruby&#8217;s YAML library situation. Historically Ruby has used
-the Syck &hellip;">
+  <meta name="description" content="Category: dtrace">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -20,7 +18,7 @@ the Syck &hellip;">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://chrisa.github.com/blog/2011/12/03/ruby-1.9.2-and-yaml/">
+  <link rel="canonical" href="http://chrisa.github.comblog/categories/dtrace/">
   <link href="/favicon.png" rel="icon">
   <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <script src="/javascripts/modernizr-2.0.js"></script>
@@ -75,112 +73,35 @@ the Syck &hellip;">
   <div id="main">
     <div id="content">
       <div>
-<article class="hentry" role="article">
+<article role="article">
   
   <header>
-    
-      <h1 class="entry-title">Ruby 1.9.2 and YAML</h1>
-    
-    
-      <p class="meta">
-        
-
-
-
-
-
-
-
-
-  
-
-
-<time datetime="2011-12-03T00:00:00+00:00" pubdate data-updated="true">Dec 3<span>rd</span>, 2011</time>
-        
-      </p>
+    <h1 class="entry-title">Category: Dtrace</h1>
     
   </header>
+  
+  <div id="blog-archives" class="category">
 
 
-<div class="entry-content"><p>I found another gotcha when embedding MCollective in a larger
-application: Ruby&#8217;s YAML library situation. Historically Ruby has used
-the Syck library, but since 1.9.2 libyaml is used if available,
-through a set of bindings called Psych.</p>
 
-<p>While Syck is still available and may be selected at runtime, the
-default is chosen at compile time, based on the presence or not of
-libyaml - if it&#8217;s there when you build Ruby, you&#8217;ll get Psych by
-default.</p>
+  
+  <h2>2013</h2>
 
-<p>To find out which binding your Ruby uses, inspect <tt>YAML::ENGINE.yamler</tt>:</p>
+<article>
+  
+<h1><a href="/blog/2013/01/26/a-perl-ustack-helper/">A Perl <tt>ustack</tt> helper?</a></h1>
+<time datetime="2013-01-26T00:00:00+00:00" pubdate><span class='month'>Jan</span> <span class='day'>26</span> <span class='year'>2013</span></time>
 
-<figure class='code'><figcaption><span>Finding the current YAML library </span></figcaption>
-<div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-</pre></td><td class='code'><pre><code class=''><span class='line'>ruby-1.9.2-p290 :004 > YAML::ENGINE.yamler
-</span><span class='line'> => "syck"</span></code></pre></td></tr></table></div></figure>
+<footer>
+  <span class="categories">posted in <a class='category' href='/blog/categories/dtrace/'>dtrace</a></span>
+</footer>
 
 
-<p>This wouldn&#8217;t be a problem unless there were differences, and although
-it&#8217;s fair to say that Psych is more compliant with the YAML spec, it&#8217;s
-less tolerant of slight deviations - some of which Syck is guilty of.</p>
+</article>
 
-<p>Coming back to MCollective, this means that an MCollective running on
-Ruby 1.9.2 with Psych won&#8217;t necessarily be able to communicate with
-other MCollective installations running on Ruby 1.8 with Syck. Mostly
-this seems to be down to handling of whitespace in multiline YAML
-values, which MCollective makes heavy use of since it nests one YAML
-document in another.</p>
-
-<p>The initial fix in my environment was to rebuild Ruby 1.9.2 without
-libyaml, so Syck is used everywhere. Beyond that, upgrading everything
-to the same Ruby 1.9.2 build appears to be the best long term answer.</p>
 </div>
 
-
-  <footer>
-    <p class="meta">
-      
   
-
-<span class="byline author vcard">Posted by <span class="fn">Chris Andrews</span></span>
-
-      
-
-
-
-
-
-
-
-
-  
-
-
-<time datetime="2011-12-03T00:00:00+00:00" pubdate data-updated="true">Dec 3<span>rd</span>, 2011</time>
-      
-
-
-    </p>
-    
-      <div class="sharing">
-  
-  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://chrisa.github.com/blog/2011/12/03/ruby-1.9.2-and-yaml/" data-via="chrisandrews" data-counturl="http://chrisa.github.com/blog/2011/12/03/ruby-1.9.2-and-yaml/" >Tweet</a>
-  
-  
-  
-</div>
-
-    
-    <p class="meta">
-      
-        <a class="basic-alignment left" href="/blog/2011/10/25/embedding-mcollective/" title="Previous Post: Embedding MCollective">&laquo; Embedding MCollective</a>
-      
-      
-        <a class="basic-alignment right" href="/blog/2011/12/04/libusdt-runtime-dtrace-providers/" title="Next Post: libusdt - creating DTrace providers at runtime">libusdt - creating DTrace providers at runtime &raquo;</a>
-      
-    </p>
-  </footer>
 </article>
 
 </div>

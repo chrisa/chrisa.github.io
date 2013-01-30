@@ -1,0 +1,714 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>A Perl ustack helper? - Chris's Blog</title>
+  <meta name="author" content="Chris Andrews">
+
+  
+  <meta name="description" content="I&#8217;ve done some work with DTrace and Perl, using my
+Devel::DTrace::Provider
+and Andy Armstrong&#8217;s
+Devel::DTrace, but
+there&#8217;s never &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://chrisa.github.com/blog/2013/01/26/a-perl-ustack-helper/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Chris's Blog" type="application/atom+xml">
+  <!--Fonts from Google's Web font directory at http://google.com/webfonts -->
+<link href='http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic' rel='stylesheet' type='text/css'>
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-26543505-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Chris's Blog</a></h1>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:chrisa.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul role=main-navigation>
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">A Perl <tt>ustack</tt> Helper?</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-01-26T00:00:00+00:00" pubdate data-updated="true">Jan 26<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>I&#8217;ve done some work with DTrace and Perl, using my
+<a href="https://metacpan.org/module/Devel::DTrace::Provider">Devel::DTrace::Provider</a>
+and Andy Armstrong&#8217;s
+<a href="https://metacpan.org/module/Devel::DTrace">Devel::DTrace</a>, but
+there&#8217;s never been a ustack helper: because of the structure of the
+Perl interpreter, it&#8217;s
+<a href="https://blogs.oracle.com/levon/entry/python_and_dtrace_in_build#comment-1180088715000">impossible</a>
+to write one &#8211; at least, in the intended manner&#8230;</p>
+
+<h2>Perl and ustack helpers - the big problem</h2>
+
+<p>The primary problem with a Perl ustack helper is the lack of
+correspondence between the C stack and the Perl stack: unlike Python,
+V8 Javascript etc, Perl&#8217;s stack is handled entirely separately, and
+this is why the &#8220;standard&#8221; ustack helper will never be possible: there
+just aren&#8217;t the C stack frames there to annotate.</p>
+
+<p>What we can try though, is to annotate a single C frame with as much
+of the Perl stack as we can find by chasing pointers from that frame.</p>
+
+<p>This post explains my experiments with that idea. To give the game
+away early, it doesn&#8217;t entirely work, but there are some techniques
+here that might be useful elsewhere.</p>
+
+<p>A lot of what I&#8217;ve done here is based directly on the existing ustack
+helpers for other languages, specifically V8 and Python.</p>
+
+<h2>Dynamically loading the ustack helper</h2>
+
+<p>If at all possible, I want the helper to work on an unmodified Perl
+binary - if the thing works at all, I want to be able to use it like a
+CPAN-style module rather than having to patch Perl. The first problem
+is to get the the helper loaded.</p>
+
+<p>Given the way <a href="https://github.com/chrisa/libusdt">libusdt</a> works, it
+seems likely we can load a helper just like a provider, by
+<code>ioctl()</code>ing the DOF down to the kernel from a Perl XS
+extension. Of course, that&#8217;s all DTrace&#8217;s DOF-loading <code>_init</code>
+routine does anyway, just we&#8217;ll be doing it slightly later on in the
+process&#8217;s life.</p>
+
+<p>Unfortunately this facility <a href="https://github.com/chrisa/libusdt/issues/6">isn&#8217;t part of libusdt&#8217;s public API yet</a>, but it&#8217;s really not
+that much code, especially if we&#8217;re only supporting Illumos-based
+systems.</p>
+
+<p>Actually building the helper DOF is trivial: compile the script with
+<code>dtrace_program_fcompile()</code>, and wrap it in DOF with
+<code>dtrace_dof_create()</code>.</p>
+
+<p>Loading the DOF containing the helper program works, and means we can
+initialise the helper from an extension module, rather needing to
+patch it into Perl&#8217;s build process.</p>
+
+<h2>Finding - or rather creating - a frame to annotate</h2>
+
+<p>Ideally we need a stack frame which is always found in the
+interpreter&#8217;s C stack, for which we can easily find the address of the
+function, and where the stack is passed as one of the
+arguments. There&#8217;s no such frame in the standard Perl interpreter, but
+we can manufacture one. Perl lets us replace the &#8220;runops loop&#8221; with
+one of our own, and we can use this to meet all of our requirements.</p>
+
+<p>The runops loop function is the core of the interpreter, responsible
+for invoking the current &#8220;op&#8221;, which returns the new current op.</p>
+
+<p>The usual, non-debug, runops loop looks like this (in Perl 5.16.2):</p>
+
+<figure class='code'><figcaption><span>Standard Perl runops loop (run.c) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="kt">int</span>
+</span><span class='line'><span class="nf">Perl_runops_standard</span><span class="p">(</span><span class="n">pTHX</span><span class="p">)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="n">dVAR</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">register</span> <span class="n">OP</span> <span class="o">*</span><span class="n">op</span> <span class="o">=</span> <span class="n">PL_op</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">while</span> <span class="p">((</span><span class="n">PL_op</span> <span class="o">=</span> <span class="n">op</span> <span class="o">=</span> <span class="n">op</span><span class="o">-&gt;</span><span class="n">op_ppaddr</span><span class="p">(</span><span class="n">aTHX</span><span class="p">)))</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">TAINT_NOT</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The top-level loop is always visible during execution, and we can
+replace the usual function with one of our own, fulfilling our first
+two requirements.</p>
+
+<p>If we make this loop execute ops through another function, and pass
+that function a pointer to the Perl stack, we fulfill the final
+requirement. These functions are dtrace_runops and dtrace_call_op:</p>
+
+<figure class='code'><figcaption><span>Modified runops loop (Helper.c) </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="n">STATIC</span> <span class="n">OP</span> <span class="o">*</span>
+</span><span class='line'><span class="nf">dtrace_call_op</span><span class="p">(</span><span class="n">pTHX_</span> <span class="n">PERL_CONTEXT</span> <span class="o">*</span><span class="n">stack</span><span class="p">)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>        <span class="k">return</span> <span class="n">CALL_FPTR</span><span class="p">(</span><span class="n">PL_op</span><span class="o">-&gt;</span><span class="n">op_ppaddr</span><span class="p">)(</span><span class="n">aTHX</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">STATIC</span> <span class="kt">int</span>
+</span><span class='line'><span class="nf">dtrace_runops</span><span class="p">(</span><span class="n">pTHX</span><span class="p">)</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>        <span class="k">while</span> <span class="p">(</span> <span class="n">PL_op</span> <span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                <span class="k">if</span> <span class="p">(</span> <span class="n">PL_op</span> <span class="o">=</span> <span class="n">dtrace_call_op</span><span class="p">(</span><span class="n">aTHX_</span> <span class="n">cxstack</span><span class="p">),</span> <span class="n">PL_op</span> <span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>                        <span class="n">PERL_ASYNC_CHECK</span><span class="p">(</span>  <span class="p">);</span>
+</span><span class='line'>                <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="n">TAINT_NOT</span><span class="p">;</span>
+</span><span class='line'>        <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We&#8217;ll target the annotation at dtrace_call_op(), and attempt to walk
+the stack starting from the PERL_CONTEXT pointer we&#8217;re given.</p>
+
+<p>Actually installing the alternative runops loop is a standard Perl
+extension technique, and we just need to make sure it happens early
+enough that the top-level loop is ours rather than the standard one.</p>
+
+<h2>Frame annotations</h2>
+
+<p>The primary purpose of the ustack helper is to provide a descriptive
+string for a frame where there&#8217;s no corresponding C symbol - for
+JITted code, say. If there is such a symbol, the ustack helper&#8217;s
+string will be ignored - and in this case, there is,
+<code>dtrace_call_op</code>.</p>
+
+<p>Fortunately there&#8217;s a mechanism for adding annotations to these
+frames, and that&#8217;s what we&#8217;ll use here: a string beginning with an
+<code>@</code> will be used as an annotation. In the <a href="https://blogs.oracle.com/levon/entry/python_and_dtrace_in_build">Python
+helper</a>,
+it looks like this:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>libpython2.4.so.1.0`PyEval_EvalFrame+0xbdf
+</span><span class='line'>           [ build/proto/lib/python/mercurial/localrepo.py:1849 (addchangegroup) ]</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>Targetting a specific frame</h2>
+
+<p>In a helper action, <code>arg0</code> is the program counter in that stack
+frame. If we make the address of our inserted <code>dtrace_call_op</code>
+function available to the helper, and of the preceding function, we
+can compare the pc to these two addresses to determine when we&#8217;re
+annotating that function.</p>
+
+<p>Here, <code>this-&gt;start</code> and <code>this-&gt;end</code> have been initialised to the
+addresses of <code>dtrace_call_op</code> and the preceding function:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>dtrace:helper:ustack:
+</span><span class='line'>/this->pc >= this->start/
+</span><span class='line'>{
+</span><span class='line'>        this->go++;
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>dtrace:helper:ustack:
+</span><span class='line'>/this->pc &lt; this->end/
+</span><span class='line'>{
+</span><span class='line'>        this->go++;
+</span><span class='line'>}</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For a reason I&#8217;m not entirely sure of, combining these predicates into
+one doesn&#8217;t work.</p>
+
+<h2>Passing values into the helper</h2>
+
+<p>With the extra control over the helper initialisation we get from
+loading it &#8220;by hand&#8221;, it turns out that macros work fine! We can use
+this to pass values into the helper: symbol addresses and structure
+member offsets.</p>
+
+<p>It doesn&#8217;t seem to be possible to simply <code>#include &lt;perl.h&gt;</code> - the D
+compiler barfs badly on Perl&#8217;s headers, which are
+.. involved. Fortunately we can do the necessary sizeof and offsetof
+work in C and pass the results into D with macros. This should buy at
+least some ability to cope with changes to Perl&#8217;s data structures,
+though more sweeping changes will still break things entirely.</p>
+
+<p>Macros are strings, so all the values passed need to be formatted with
+<code>sprintf</code>; at least this is just setup code.</p>
+
+<h2>Copying a C string</h2>
+
+<p>Unless I&#8217;ve missed something, this is awkward. Our final stacktrace
+string that the helper will return as the frame&#8217;s annotation is
+allocated out of D scratch space, so we need to copy C strings from
+userspace into it. If we have the string&#8217;s length available this is
+easily done with <code>copyinto()</code>, but if we&#8217;ve just got a <code>char *</code>,
+it&#8217;s not.</p>
+
+<p>Ideally we could take the string&#8217;s length with <code>strlen()</code> and do a
+copy &#8211; but <code>strlen</code> <a href="http://src.illumos.org/source/xref/illumos-gate/usr/src/uts/common/dtrace/dtrace.c#8595">isn&#8217;t available to helpers</a>.
+It doesn&#8217;t seem to be possible to use <code>strchr()</code> either, since it
+returns <code>string</code> and not <code>char *</code>, so we can&#8217;t find the length
+that way.</p>
+
+<p>I&#8217;m not sure if the lack of <code>strlen</code> is an oversight, or if there&#8217;s
+some reason that it&#8217;s unsafe in arbitrary context: it seems that if
+something like <code>strchr</code> is safe, <code>strlen</code> also ought to be.</p>
+
+<p>We can&#8217;t just copy a fixed length of data, so a character-by-character
+&#8220;strncpy&#8221; is needed:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>/* Copy a string into this->buf, at the location indicated by this->off */
+</span><span class='line'>
+</span><span class='line'>#define APPEND_CHR_IF(offset, str) \
+</span><span class='line'>dtrace:helper:ustack:                                                      \
+</span><span class='line'>/this->go == 2 && !this->strdone/                                          \
+</span><span class='line'>{                                                                          \
+</span><span class='line'>    copyinto((uintptr_t)((char *)str + offset), 1, this->buf + this->off); \
+</span><span class='line'>    this->off++;                                                           \
+</span><span class='line'>}                                                                          \
+</span><span class='line'>dtrace:helper:ustack:                                                      \
+</span><span class='line'>/this->go == 2 && !this->strdone && this->buf[this->off - 1] == '\0'/      \
+</span><span class='line'>{                                                                          \
+</span><span class='line'>    this->strdone = 1;                                                     \
+</span><span class='line'>    this->off--;                                                           \
+</span><span class='line'>}
+</span><span class='line'>
+</span><span class='line'>#define APPEND_CSTR(str) \
+</span><span class='line'>dtrace:helper:ustack:    \
+</span><span class='line'>/this->go == 2/          \
+</span><span class='line'>{                        \
+</span><span class='line'>    this->strdone = 0;   \
+</span><span class='line'>}                        \
+</span><span class='line'>APPEND_CHR_IF(0, str) \
+</span><span class='line'>APPEND_CHR_IF(1, str) \
+</span><span class='line'>APPEND_CHR_IF(2, str) \
+</span><span class='line'>...
+</span><span class='line'>[ up to the length of string required]</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>Walking the stack</h2>
+
+<p>After all that, actually walking the stack from the pointer we&#8217;ve been
+passed is relatively simple. Using the information in <a href="http://cpansearch.perl.org/src/RURBAN/illguts-0.42/index-14.html">Perlguts Illustrated</a>,
+we walk the context stack, appending frame annotations to our string buffer.</p>
+
+<p>Obviously it&#8217;s only possible to walk a limited number of frames, and
+with the default size limit on helper size and the ops required for
+string copies, quite a limited number of frames.</p>
+
+<h2>The output!</h2>
+
+<p>Here&#8217;s an incredibly simple example of the output:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>0     20                      write:entry 
+</span><span class='line'>              libc.so.1`__write+0x15
+</span><span class='line'>              libperl.so`PerlIOUnix_write+0x46
+</span><span class='line'>              libperl.so`Perl_PerlIO_write+0x47
+</span><span class='line'>              libperl.so`PerlIOBuf_flush+0x50
+</span><span class='line'>              libperl.so`Perl_PerlIO_flush+0x45
+</span><span class='line'>              libperl.so`PerlIOBuf_write+0x11d
+</span><span class='line'>              libperl.so`Perl_PerlIO_write+0x47
+</span><span class='line'>              libperl.so`Perl_do_print+0xa7
+</span><span class='line'>              libperl.so`Perl_pp_print+0x195
+</span><span class='line'>              Helper.so`dtrace_call_op+0x3f
+</span><span class='line'>                [ 
+</span><span class='line'>                  t/helper/01-helper.t:
+</span><span class='line'>                  t/helper/01-helper.t:24
+</span><span class='line'>                  t/helper/01-helper.t:25
+</span><span class='line'>                  t/helper/01-helper.t:21
+</span><span class='line'>                  t/helper/01-helper.t:17
+</span><span class='line'>                  t/helper/01-helper.t:13
+</span><span class='line'>                ]
+</span><span class='line'>              Helper.so`dtrace_runops+0x56
+</span><span class='line'>              libperl.so`perl_run+0x380
+</span><span class='line'>              perl`main+0x15b
+</span><span class='line'>              perl`_start+0x83</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This shows file:lineno pairs for each stack frame representing a
+subroutine call that was found walking the context stack.</p>
+
+<p>Here&#8217;s a (slightly) less trivial example, taken during a run of the
+CPAN shell program:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>0     20                      write:entry 
+</span><span class='line'>              libc.so.1`__write+0x15
+</span><span class='line'>              libperl.so`PerlIOUnix_write+0x46
+</span><span class='line'>              libperl.so`Perl_PerlIO_write+0x47
+</span><span class='line'>              libperl.so`PerlIOBuf_flush+0x50
+</span><span class='line'>              libperl.so`Perl_PerlIO_flush+0x45
+</span><span class='line'>              libperl.so`PerlIOBuf_write+0x11d
+</span><span class='line'>              libperl.so`Perl_PerlIO_write+0x47
+</span><span class='line'>              libperl.so`Perl_do_print+0xa7
+</span><span class='line'>              libperl.so`Perl_pp_print+0x195
+</span><span class='line'>              Helper.so`dtrace_call_op+0x3f
+</span><span class='line'>                [ 
+</span><span class='line'>                  -e:
+</span><span class='line'>                  -e:1
+</span><span class='line'>                  /opt/local/lib/perl5/5.14.0/CPAN.pm:325
+</span><span class='line'>                  /opt/local/lib/perl5/5.14.0/CPAN.pm:325
+</span><span class='line'>                  /opt/local/lib/perl5/5.14.0/CPAN.pm:345
+</span><span class='line'>                  /opt/local/lib/perl5/5.14.0/CPAN.pm:421
+</span><span class='line'>                  /opt/local/lib/perl5/5.14.0/CPAN/Shell.pm:1494
+</span><span class='line'>                  /opt/local/lib/perl5/5.14.0/CPAN/Shell.pm:1461
+</span><span class='line'>                ]
+</span><span class='line'>              Helper.so`dtrace_runops+0x56
+</span><span class='line'>              libperl.so`perl_run+0x246
+</span><span class='line'>              perl`main+0x15b
+</span><span class='line'>              perl`_start+0x83</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>The code, and its limitations</h2>
+
+<p>The code is <a href="https://github.com/chrisa/perl-Devel-DTrace-Helper">available on Github</a>.
+I don&#8217;t plan to release this module to CPAN any time soon!</p>
+
+<p>For anything but the most trivial examples this code probably won&#8217;t
+provide useful Perl stacktraces, and it&#8217;s only been tried on Perl
+5.14.2 built with threads, on an Illumos-derived system.</p>
+
+<p>It certainly won&#8217;t work on the Mac, since <a href="http://mail.opensolaris.org/pipermail/dtrace-discuss/2011-March/009088.html">ustack helpers are disabled
+there</a>,
+and won&#8217;t work without threads enabled in Perl because of an
+implementation detail of Perl OPs we&#8217;re exploiting that&#8217;s different
+without threads.</p>
+
+<p>Hopefully though, this post sheds a bit of light on ustack helpers,
+and maybe there are some interesting techniques here for other
+situations.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Chris Andrews</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-01-26T00:00:00+00:00" pubdate data-updated="true">Jan 26<span>th</span>, 2013</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/dtrace/'>dtrace</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://chrisa.github.com/blog/2013/01/26/a-perl-ustack-helper/" data-via="chrisandrews" data-counturl="http://chrisa.github.com/blog/2013/01/26/a-perl-ustack-helper/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2012/07/22/deploying-a-pki-with-chef/" title="Previous Post: Deploying a PKI with Chef">&laquo; Deploying a PKI with Chef</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2013/01/26/a-perl-ustack-helper/">A Perl <tt>ustack</tt> helper?</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/07/22/deploying-a-pki-with-chef/">Deploying a PKI with Chef</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/07/05/custom-chef-gem-resources/">Custom <tt>chef_gem</tt> resources</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2011/12/04/libusdt-runtime-dtrace-providers/">libusdt - creating DTrace providers at runtime</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2011/12/03/ruby-1.9.2-and-yaml/">Ruby 1.9.2 and YAML</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/chrisa">@chrisa</a> on GitHub
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'chrisa',
+            count: 8,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("chrisandrews", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/chrisandrews" class="twitter-follow-button" data-show-count="false">Follow @chrisandrews</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - <a href="mailto:chris@nodnol.org">Chris Andrews</a> -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>
