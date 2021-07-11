@@ -6,7 +6,7 @@ enableRobotsTXT = true
 paginate = 4
 summaryLength = 15
 
-googleAnalytics = "G-3FKS4VJ74G"
+googleAnalytics = "UA-201798100-1"
 
 [taxonomies]
   category = "categories"
