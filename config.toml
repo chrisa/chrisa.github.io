@@ -13,7 +13,7 @@ googleAnalytics = "UA-201798100-1"
   category = "categories"
 
 [params]
-  github = "chrisa"
+  github = "https://github.com/chrisa"
   showReadMore = false
 
 [privacy]
