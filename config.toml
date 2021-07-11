@@ -5,6 +5,7 @@ theme = "noteworthy"
 enableRobotsTXT = true
 paginate = 4
 summaryLength = 15
+publishDir = "docs"
 
 googleAnalytics = "UA-201798100-1"
 
