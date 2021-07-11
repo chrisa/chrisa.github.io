@@ -7,18 +7,9 @@ paginate = 4
 summaryLength = 15
 publishDir = "docs"
 
-googleAnalytics = "UA-201798100-1"
-
 [taxonomies]
   category = "categories"
 
 [params]
   github = "https://github.com/chrisa"
   showReadMore = false
-
-[privacy]
-  [privacy.googleAnalytics]
-    anonymizeIP = true
-    disable = false
-    respectDoNotTrack = true
-    useSessionStorage = false
