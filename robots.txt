@@ -1,4 +1,1 @@
 User-agent: *
-Disallow: 
-
-Sitemap: http://chrisa.github.com/sitemap.xml 
