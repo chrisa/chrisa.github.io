@@ -1,0 +1,23 @@
+baseURL = "https://chrisa.github.io/"
+languageCode = "en-us"
+title = "Chris's Blog"
+theme = "noteworthy"
+enableRobotsTXT = true
+paginate = 4
+summaryLength = 15
+
+googleAnalytics = "G-3FKS4VJ74G"
+
+[taxonomies]
+  category = "categories"
+
+[params]
+  github = "chrisa"
+  showReadMore = false
+
+[privacy]
+  [privacy.googleAnalytics]
+    anonymizeIP = true
+    disable = false
+    respectDoNotTrack = true
+    useSessionStorage = false
