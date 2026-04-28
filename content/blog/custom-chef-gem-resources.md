@@ -1,10 +1,9 @@
----
-layout: post
-title: "Custom chef_gem resources"
-date: 2012-07-05
-comments: false
-categories: ["chef"]
----
++++
+title = "Custom chef_gem resources"
+date = 2012-07-05
+[taxonomies]
+tags=["chef", "ruby"]
++++
 
 Since Chef 0.10.10, there's been a new core resource for installing
 Ruby gems to support Chef cookbooks: chef_gem. This installs

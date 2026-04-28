@@ -1,10 +1,9 @@
----
-layout: post
-title: "Ruby 1.9.2 and YAML"
-date: 2011-12-03
-comments: false
-categories: ["chef"]
----
++++
+title = "Ruby 1.9.2 and YAML"
+date = 2011-12-03
+[taxonomies]
+tags=["ruby"]
++++
 
 I found another gotcha when embedding MCollective in a larger
 application: Ruby's YAML library situation. Historically Ruby has used

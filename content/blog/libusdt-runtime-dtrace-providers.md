@@ -1,10 +1,9 @@
----
-layout: post
-title: "libusdt - creating DTrace providers at runtime"
-date: 2011-12-04
-comments: false
-categories: ["dtrace"]
----
++++
+title = "libusdt - creating DTrace providers at runtime"
+date = 2011-12-04
+[taxonomies]
+tags=["dtrace"]
++++
 
 With this post I'd like to introduce <tt>libusdt</tt>, a library for
 creating DTrace USDT providers at runtime, intended as the basis for

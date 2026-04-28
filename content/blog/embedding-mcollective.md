@@ -1,10 +1,9 @@
----
-layout: post
-title: "Embedding MCollective"
-date: 2011-10-25T09:32:00
-comments: false
-categories: ["chef"]
----
++++
+title = "Embedding MCollective"
+date = 2011-10-25T09:32:00
+[taxonomies]
+tags=["chef", "ruby"]
++++
 
 MCollective is "a framework to build server orchestration or parallel
 job execution systems". It's very easy to create and deploy agents to

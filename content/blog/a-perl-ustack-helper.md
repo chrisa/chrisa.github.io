@@ -1,10 +1,9 @@
----
-layout: post
-title: "A Perl ustack helper?"
-date: 2013-01-26
-comments: false
-categories: ["dtrace"]
----
++++
+title = "A Perl ustack helper?"
+date = 2013-01-26
+[taxonomies]
+tags=["dtrace"]
++++
 
 I've done some work with DTrace and Perl, using my
 [Devel::DTrace::Provider](https://metacpan.org/module/Devel::DTrace::Provider)
@@ -12,7 +11,7 @@ and Andy Armstrong's
 [Devel::DTrace](https://metacpan.org/module/Devel::DTrace), but
 there's never been a ustack helper: because of the structure of the
 Perl interpreter, it's
-[impossible](https://blogs.oracle.com/levon/entry/python_and_dtrace_in_build#comment-1180088715000)
+[impossible](https://web.archive.org/web/20090311010740/http://blogs.sun.com/levon/entry/python_and_dtrace_in_build#comment-1199884874000)
 to write one -- at least, in the intended manner...
 
 
@@ -117,7 +116,7 @@ dtrace_runops(pTHX)
         TAINT_NOT;
         return 0;
 }
-```	
+```
 
 We'll target the annotation at dtrace_call_op(), and attempt to walk
 the stack starting from the PERL_CONTEXT pointer we're given.
@@ -139,7 +138,7 @@ string will be ignored - and in this case, there is,
 Fortunately there's a mechanism for adding annotations to these
 frames, and that's what we'll use here: a string beginning with an
 `@` will be used as an annotation. In the [Python
-helper](https://blogs.oracle.com/levon/entry/python_and_dtrace_in_build),
+helper](https://web.archive.org/web/20090311010740/http://blogs.sun.com/levon/entry/python_and_dtrace_in_build),
 it looks like this:
 
 ```
@@ -208,7 +207,7 @@ easily done with `copyinto()`, but if we've just got a `char *`,
 it's not.
 
 Ideally we could take the string's length with `strlen()` and do a
-copy -- but `strlen` [isn't available to helpers](http://src.illumos.org/source/xref/illumos-gate/usr/src/uts/common/dtrace/dtrace.c#8595).
+copy -- but `strlen` [isn't available to helpers](https://github.com/illumos/illumos-gate/blob/e5803b76927480e8f9b67b22201c484ccf4c2bcf/usr/src/uts/common/dtrace/dtrace.c#L8600).
 It doesn't seem to be possible to use `strchr()` either, since it
 returns `string` and not `char *`, so we can't find the length
 that way.
@@ -254,7 +253,7 @@ APPEND_CHR_IF(2, str) \
 ## Walking the stack ##
 
 After all that, actually walking the stack from the pointer we've been
-passed is relatively simple. Using the information in [Perlguts Illustrated](http://cpansearch.perl.org/src/RURBAN/illguts-0.42/index-14.html),
+passed is relatively simple. Using the information in [Perlguts Illustrated](https://web.archive.org/web/20130529141901/http://cpansearch.perl.org/src/RURBAN/illguts-0.42/index-14.html),
 we walk the context stack, appending frame annotations to our string buffer. 
 
 Obviously it's only possible to walk a limited number of frames, and
@@ -336,7 +335,7 @@ provide useful Perl stacktraces, and it's only been tried on Perl
 5.14.2 built with threads, on an Illumos-derived system.
 
 It certainly won't work on the Mac, since [ustack helpers are disabled
-there](http://mail.opensolaris.org/pipermail/dtrace-discuss/2011-March/009088.html),
+there](https://web.archive.org/web/20120110103229/http://mail.opensolaris.org/pipermail/dtrace-discuss/2011-March/009088.html),
 and won't work without threads enabled in Perl because of an
 implementation detail of Perl OPs we're exploiting that's different
 without threads.

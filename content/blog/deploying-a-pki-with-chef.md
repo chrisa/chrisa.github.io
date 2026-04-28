@@ -1,10 +1,9 @@
----
-layout: post
-title: "Deploying a PKI with Chef"
-date: 2012-07-22
-comments: false
-categories: ["chef"]
----
++++
+title = "Deploying a PKI with Chef"
+date = 2012-07-22
+[taxonomies]
+tags=["chef", "ruby"]
++++
 
 Traditionally, rolling out an X.509-style PKI has been a lot of
 work. You've got to create the CA, generate all the necessary private
